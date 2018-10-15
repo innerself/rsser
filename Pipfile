@@ -9,8 +9,12 @@ mimesis = "*"
 requests = "*"
 "beautifulsoup4" = "*"
 python-decouple = "*"
+feedgen = "*"
+transliterate = "*"
+dateparser = "*"
+tinytag = "*"
 
 [dev-packages]
 
 [requires]
-python_version = "3.6"
+python_version = "3.7"
