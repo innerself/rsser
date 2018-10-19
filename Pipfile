@@ -13,6 +13,7 @@ feedgen = "*"
 transliterate = "*"
 dateparser = "*"
 tinytag = "*"
+coverage = "*"
 
 [dev-packages]
 
