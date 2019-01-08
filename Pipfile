@@ -6,7 +6,7 @@ name = "pypi"
 [packages]
 django = "*"
 mimesis = "*"
-requests = "*"
+requests = "==2.21.0"
 "beautifulsoup4" = "*"
 python-decouple = "*"
 feedgen = "*"
@@ -14,6 +14,7 @@ transliterate = "*"
 dateparser = "*"
 tinytag = "*"
 coverage = "*"
+pillow = "*"
 
 [dev-packages]
 

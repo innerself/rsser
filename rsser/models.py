@@ -1,9 +1,7 @@
 from dataclasses import dataclass
-from datetime import date
-from typing import List
+from datetime import datetime
 
 from django.db import models
-from transliterate import translit
 
 
 class Station(models.Model):
@@ -41,9 +39,11 @@ class Program(models.Model):
         ('archive', 'Archive'),
     )
 
-    name = models.CharField('name', max_length=200)
+    title_ru = models.CharField('name_ru', max_length=200)
+    title_en = models.CharField('name_en', max_length=200)
     description = models.CharField(max_length=300)
     url = models.URLField()
+    image_path = models.URLField()
     status = models.CharField(max_length=1, choices=STATUSES)
     hosts = models.ManyToManyField(Host, related_name='programs')
     station = models.ForeignKey(
@@ -53,10 +53,11 @@ class Program(models.Model):
     )
 
     def __str__(self):
-        return self.name
+        return self.title_ru
 
 
-class Episode(models.Model):
+class EpisodeRecord(models.Model):
+    url = models.URLField()
     url_hash = models.CharField(max_length=200)
     duration = models.IntegerField()
     size = models.IntegerField()
@@ -64,11 +65,12 @@ class Episode(models.Model):
 
 
 @dataclass
-class ParsedEpisode:
-    date: date
+class Episode:
+    date: datetime
     title: str
+    description: str
     duration: int
-    persons: List[dict]
+    # persons: List[dict]
     file_name: str
     file_url: str
     file_size: int

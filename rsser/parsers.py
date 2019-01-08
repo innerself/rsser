@@ -3,13 +3,17 @@ import os
 from typing import List, Optional
 
 import dateparser
+import pytz
 import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, ResultSet
 from django.conf import settings
+from feedgen.entry import FeedEntry
+from feedgen.feed import FeedGenerator
 from requests.exceptions import InvalidURL
 from tinytag import TinyTag
 
-from rsser.models import Station, Program, ParsedEpisode, Episode
+from rsser.models import Station, Program, Episode, EpisodeRecord
+from rsser.utils import prepare_gm_image
 
 
 def clean_gm_title(raw_title: str) -> str:
@@ -40,9 +44,13 @@ def parse_gm_person(raw_person) -> dict:
     return person
 
 
+def string_hash(string: str) -> str:
+    return hashlib.md5(string.encode('utf-8')).hexdigest()
+
+
 def file_info(url: str, file_name: str) -> tuple:
-    url_hash = hashlib.md5(url.encode('utf-8')).hexdigest()
-    episode = Episode.objects.filter(url_hash=url_hash).first()
+    url_hash = string_hash(url)
+    episode = EpisodeRecord.objects.filter(url_hash=url_hash).first()
 
     if episode:
         return episode.duration, episode.size
@@ -64,7 +72,8 @@ def file_info(url: str, file_name: str) -> tuple:
 
     tag = TinyTag.get(tmp_file)
 
-    Episode.objects.create(
+    EpisodeRecord.objects.create(
+        url=url,
         url_hash=url_hash,
         duration=tag.duration,
         size=tag.filesize,
@@ -75,13 +84,36 @@ def file_info(url: str, file_name: str) -> tuple:
     return int(tag.duration), tag.filesize
 
 
-def parse_gm_episode(raw_episode) -> Optional[ParsedEpisode]:
+def prepare_gm_description(persons: List[dict]) -> str:
+    # description = []
+    #
+    # for person in persons:
+    #     description.append(
+    #         f"<b>{person['name']}</b><br>{person['title']}<br>"
+    #     )
+
+    description = '<br>'.join([
+        f"<b>{person['name']}</b><br>{person['title']}<br>"
+        for person
+        in persons
+    ])
+
+    return description
+    # return '<br>'.join(description)
+
+
+def parse_gm_episode(
+        program: Program,
+        raw_episode) -> Optional[Episode]:
+
     raw_dt = raw_episode.find('div', {'class': 'time'}).span.text.strip()
+    episode_date = dateparser.parse(raw_dt, ['ru'])
 
     try:
         raw_title = raw_episode.find('p', {'class': 'header'}).text.strip()
+        raw_title = clean_gm_title(raw_title)
     except AttributeError:
-        raw_title = ''
+        raw_title = program.title_ru
 
     file_name = raw_episode.find('a', {'class': 'download'})['download']
     file_url = raw_episode.find('a', {'class': 'download'})['href']
@@ -90,22 +122,24 @@ def parse_gm_episode(raw_episode) -> Optional[ParsedEpisode]:
         return None
 
     raw_persons = raw_episode.find_all('a', {'class': 'person'})
+    parsed_persons = [parse_gm_person(x) for x in raw_persons]
 
-    parsed_persons = []
-    for raw_person in raw_persons:
-        parsed_person = parse_gm_person(raw_person)
-        parsed_persons.append(parsed_person)
+    # parsed_persons = []
+    # for raw_person in raw_persons:
+    #     parsed_person = parse_gm_person(raw_person)
+    #     parsed_persons.append(parsed_person)
 
     try:
         duration, file_size = file_info(file_url, file_name)
     except InvalidURL:
         return None
 
-    episode = ParsedEpisode(
-        date=dateparser.parse(raw_dt, ['ru']).date(),
-        title=clean_gm_title(raw_title),
+    episode = Episode(
+        date=episode_date,
+        title=f'{raw_title} ({episode_date.date()})',
+        description=prepare_gm_description(parsed_persons),
         duration=duration,
-        persons=parsed_persons,
+        # persons=parsed_persons,
         file_name=file_name,
         file_url=file_url,
         file_size=file_size,
@@ -114,19 +148,53 @@ def parse_gm_episode(raw_episode) -> Optional[ParsedEpisode]:
     return episode
 
 
-def parse_gm_episodes(program: Program) -> List[ParsedEpisode]:
-    response = requests.get(program.url)
+def collect_gm_raw_episodes(
+        program: Program,
+        date_string: str = 'this month',
+        raw_episodes: List[ResultSet] = None,
+        desired_episodes_num: int = 10,
+        last_try: bool = False) -> List[ResultSet]:
+
+    if not raw_episodes:
+        raw_episodes = list()
+
+    curr_date = dateparser.parse(date_string)
+    url_suffix = f'?month={curr_date.month}&year={curr_date.year}'
+    full_program_url = program.url + url_suffix
+
+    response = requests.get(full_program_url)
 
     if response.status_code != 200:
         raise InvalidURL(program.url)
 
     soup = BeautifulSoup(response.content, 'html.parser')
     episodes_wrapper = soup.find('div', {'class': 'oneProgramPage'})
-    raw_episodes = episodes_wrapper.ul.findChildren('li', recursive=False)
+    episodes = episodes_wrapper.ul.findChildren('li', recursive=False)
+
+    were_episodes_this_month = (
+        'Выпусков в этом месяце не было'
+        not in episodes[0].text
+    )
+    if were_episodes_this_month:
+        raw_episodes.extend(episodes)
+
+    if not last_try and len(raw_episodes) < desired_episodes_num:
+        raw_episodes = collect_gm_raw_episodes(
+            program=program,
+            date_string='last month',
+            raw_episodes=raw_episodes,
+            last_try=True,
+        )
+
+    return raw_episodes
+
+
+def parse_gm_episodes(program: Program) -> List[Episode]:
+    raw_episodes = collect_gm_raw_episodes(program)
 
     parsed_episodes = []
     for raw_episode in raw_episodes:
-        parsed_episode = parse_gm_episode(raw_episode)
+        parsed_episode = parse_gm_episode(program, raw_episode)
 
         if parsed_episode:
             parsed_episodes.append(parsed_episode)
@@ -134,9 +202,105 @@ def parse_gm_episodes(program: Program) -> List[ParsedEpisode]:
     return parsed_episodes
 
 
-def parse_gm(station: Station):
+def prepare_gm_title(
+        program: Program,
+        episode: Episode) -> str:
+
+    if not episode.title:
+        episode.title += program.title_ru
+
+    episode.title += f' ({episode.date})'
+
+    return episode.title
+
+
+def parse_gm_programs(root_url: str):
+    response = requests.get(root_url)
+    soup = BeautifulSoup(response.content, 'html.parser')
+    programs_wrapper = soup.findAll('ul', {'class': 'programsList'})
+
+    print()
+
+
+def update_gm_programs() -> None:
+    station = Station.objects.filter(name='Говорит Москва').first()
+    programs = parse_gm_programs(station.programs_root)
+
+
+def collect_feed_entry(
+        program: Program,
+        episode: Episode) -> FeedEntry:
+
+    minutes, seconds = divmod(episode.duration, 60)
+    hours, minutes = divmod(minutes, 60)
+    duration = '%02d:%02d:%02d' % (hours, minutes, seconds)
+
+    entry = FeedEntry()
+    entry.load_extension('podcast')
+
+    entry.title(episode.title)
+    entry.link(href=program.url)
+    entry.description(episode.description)
+    entry.published(pytz.utc.localize(episode.date))
+    entry.guid(string_hash(episode.file_url))
+    entry.enclosure(episode.file_url, str(episode.file_size), 'audio/mpeg')
+    entry.podcast.itunes_duration(duration)
+
+    return entry
+
+
+def collect_feed(
+        program: Program,
+        episodes: List[Episode]) -> FeedGenerator:
+
+    # feed_image_path = (
+    #     f'{config("ROOT_URL")}'
+    #     f'/{config("STATIC_DIR")}'
+    #     f'/{program.title_en}.png'
+    # )
+
+    feed = FeedGenerator()
+    feed.load_extension('podcast')
+
+    feed.title(program.title_ru)
+    feed.link(href=program.url)
+    # feed.image(feed_image_path)
+    feed.image(program.image_path)
+    feed.description(program.description)
+    feed.language('ru')
+
+    for episode in episodes:
+        entry = collect_feed_entry(program, episode)
+        feed.add_entry(entry, order='append')
+
+    return feed
+
+
+def parse_gm(station: Station) -> None:
     for program in station.programs.all():
-        parse_gm_episodes(program)
+        if not program.image_path:
+            prepare_gm_image(program.title_ru, program.title_en)
+
+        episodes = parse_gm_episodes(program)
+        feed = collect_feed(program, episodes)
+
+        file_name = os.path.join(
+            settings.BASE_DIR,
+            'rsser',
+            'feeds',
+            'gm',
+            f'{program.title_en}.xml',
+        )
+
+        feed.rss_file(file_name, pretty=True)
+
+    return None
+
+
+# def update_programs(station: Station):
+#     updaters = {
+#         'Говорит Москва': update_gm_programs,
+#     }
 
 
 def build_rss_files():
@@ -146,8 +310,7 @@ def build_rss_files():
     }
 
     for station in stations:
-        parsed_station = parsers[station.name](station)
-        # rss_file = buld_rss_file(parsed_station)
+        parsers[station.name](station)
 
 
 if __name__ == '__main__':
