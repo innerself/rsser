@@ -11,6 +11,7 @@ from feedgen.entry import FeedEntry
 from feedgen.feed import FeedGenerator
 from requests.exceptions import InvalidURL
 from tinytag import TinyTag
+from transliterate import translit
 
 from rsser.models import Station, Program, Episode, EpisodeRecord
 from rsser.utils import prepare_gm_image
@@ -28,6 +29,17 @@ def clean_gm_title(raw_title: str) -> str:
         title = raw_title[1:-1]
 
     return title
+
+
+def get_page_soup(url: str):
+    response = requests.get(url)
+
+    if response.status_code != 200:
+        raise InvalidURL(url)
+
+    soup = BeautifulSoup(response.content, 'html.parser')
+
+    return soup
 
 
 def parse_gm_person(raw_person) -> dict:
@@ -214,12 +226,62 @@ def prepare_gm_title(
     return episode.title
 
 
-def parse_gm_programs(root_url: str):
+def collect_gm_raw_programs(root_url: str):
     response = requests.get(root_url)
     soup = BeautifulSoup(response.content, 'html.parser')
-    programs_wrapper = soup.findAll('ul', {'class': 'programsList'})
+    programs_root = soup.find('div', {'id': 'programs'})
+    programs_wrapper = programs_root.findAll('ul', {'class': 'programsList'})
 
-    print()
+    raw_programs = list()
+
+    for program in programs_wrapper:
+        raw_programs.extend(program.findAll('li'))
+
+    return raw_programs
+
+
+def parse_gm_program(root_url, raw_program):
+    # TODO replace 'replace'
+    program_url = raw_program.find('a')['href'].replace('/broadcasts/', '')
+    full_url = root_url + program_url
+    program_page_soup = get_page_soup(full_url)
+
+    name = clean_gm_title(
+        program_page_soup.find('div', {'class', 'pageHeader'}).h1.text
+    )
+
+    program_about_soup = program_page_soup.find(
+        'div', {'class', 'aboutProgram'}
+    )
+
+    description = program_about_soup.find(
+        'div', {'class', 'textDescribe'}
+    ).findAll('p')[-1].text.strip()
+
+    # TODO decide how to parse hosts
+    # hosts = parse_gm_hosts()
+    # hosts = list(raw_program.find('a'))[-1].strip().split(' и ')
+
+    
+
+    program = Program(
+        title_ru=name,
+        title_en=translit(name, 'ru', reversed=True),
+        description=description,
+        url=full_url,
+        station=
+    )
+
+
+
+
+def parse_gm_programs(root_url: str):
+    raw_programs = collect_gm_raw_programs(root_url)
+
+    for raw_program in raw_programs:
+        gm_program = parse_gm_program(root_url, raw_program)
+
+    return raw_programs
 
 
 def update_gm_programs() -> None:
