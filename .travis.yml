@@ -5,6 +5,10 @@ python:
 
 dist: xenial
 
+env:
+  global:
+    - BUILD_ON_TRAVIS=true
+
 install:
   - pip install pipenv
   - pipenv sync
