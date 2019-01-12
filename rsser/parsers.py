@@ -362,7 +362,7 @@ def collect_feed(
     feed.image(program.image_path)
     feed.description(program.description)
     feed.language('ru')
-    feed.author(program.station.name)
+    # feed.author(program.station.name)
 
     for episode in episodes:
         entry = collect_feed_entry(program, episode)
