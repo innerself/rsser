@@ -357,11 +357,12 @@ def collect_feed(
     feed = FeedGenerator()
     feed.load_extension('podcast')
 
-    feed.title(program.title_ru)
+    feed.title(f'{program.title_ru} :: {program.station.name}')
     feed.link(href=program.url)
     feed.image(program.image_path)
     feed.description(program.description)
     feed.language('ru')
+    feed.author(program.station.name)
 
     for episode in episodes:
         entry = collect_feed_entry(program, episode)
