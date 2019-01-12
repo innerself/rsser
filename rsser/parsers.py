@@ -1,6 +1,6 @@
 import hashlib
 import os
-from datetime import date
+from datetime import date, datetime
 from typing import List, Optional
 
 import dateparser
@@ -117,7 +117,7 @@ def parse_gm_episode(
     episode_date = dateparser.parse(raw_dt, ['ru'])
 
     if (date.today() - episode_date.date()).days < 0:
-        episode_date = date(episode_date.year - 1, episode_date.month, episode_date.day)
+        episode_date = datetime(episode_date.year - 1, episode_date.month, episode_date.day)
 
     try:
         raw_title = raw_episode.find('p', {'class': 'header'}).text.strip()
