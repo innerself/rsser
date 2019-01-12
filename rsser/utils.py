@@ -9,7 +9,7 @@ def prepare_gm_image(
         program_title_ru: str,
         program_title_en: str) -> str:
 
-    default_font_size = 22
+    default_font_size = 26
 
     if len(program_title_ru) > 25:
         length_ratio = 25 / len(program_title_ru)
@@ -43,6 +43,6 @@ def prepare_gm_image(
     prepared_image_path = f'{config("STATIC_DIR")}/rsser/img/{image_file_name}'
     image.save(prepared_image_path)
 
-    image_url = f'{config("SITE_URL")}/{image_file_name}'
+    image_url = f'{config("SITE_URL")}/images/{image_file_name}'
 
     return image_url

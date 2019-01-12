@@ -1,5 +1,6 @@
 import hashlib
 import os
+from datetime import date
 from typing import List, Optional
 
 import dateparser
@@ -114,6 +115,9 @@ def parse_gm_episode(
 
     raw_dt = raw_episode.find('div', {'class': 'time'}).span.text.strip()
     episode_date = dateparser.parse(raw_dt, ['ru'])
+
+    if (date.today() - episode_date.date()).days < 0:
+        episode_date = date(episode_date.year - 1, episode_date.month, episode_date.day)
 
     try:
         raw_title = raw_episode.find('p', {'class': 'header'}).text.strip()
@@ -262,6 +266,10 @@ def parse_gm_program(station: Station, raw_program: Tag) -> Program:
     description = program_about_soup.find(
         'div', {'class', 'textDescribe'}
     ).findAll('p')[-1].text.strip()
+
+    description = description.replace(
+        'Программа предназначена для лиц старше шестнадцати лет.', ''
+    )
 
     if not description:
         description = name
