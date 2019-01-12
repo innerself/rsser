@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
+from typing import List
 
 from django.db import models
 
@@ -70,7 +71,7 @@ class Episode:
     title: str
     description: str
     duration: int
-    # persons: List[dict]
+    persons: List[dict]
     file_name: str
     file_url: str
     file_size: int

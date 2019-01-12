@@ -5,7 +5,7 @@ from typing import List, Optional
 import dateparser
 import pytz
 import requests
-from bs4 import BeautifulSoup, ResultSet
+from bs4 import BeautifulSoup, ResultSet, Tag
 from django.conf import settings
 from feedgen.entry import FeedEntry
 from feedgen.feed import FeedGenerator
@@ -27,6 +27,8 @@ def clean_gm_title(raw_title: str) -> str:
         title = raw_title[1:]
     else:
         title = raw_title[1:-1]
+
+    title = title.replace(' (16+)', '').replace(' (0+)', '')
 
     return title
 
@@ -97,13 +99,6 @@ def file_info(url: str, file_name: str) -> tuple:
 
 
 def prepare_gm_description(persons: List[dict]) -> str:
-    # description = []
-    #
-    # for person in persons:
-    #     description.append(
-    #         f"<b>{person['name']}</b><br>{person['title']}<br>"
-    #     )
-
     description = '<br>'.join([
         f"<b>{person['name']}</b><br>{person['title']}<br>"
         for person
@@ -111,7 +106,6 @@ def prepare_gm_description(persons: List[dict]) -> str:
     ])
 
     return description
-    # return '<br>'.join(description)
 
 
 def parse_gm_episode(
@@ -127,19 +121,17 @@ def parse_gm_episode(
     except AttributeError:
         raw_title = program.title_ru
 
-    file_name = raw_episode.find('a', {'class': 'download'})['download']
-    file_url = raw_episode.find('a', {'class': 'download'})['href']
-
-    if not file_name or not file_url:
+    try:
+        file_name = raw_episode.find('a', {'class': 'download'})['download']
+        file_url = raw_episode.find('a', {'class': 'download'})['href']
+    except TypeError:
         return None
+
+    # if not file_name or not file_url:
+    #     return None
 
     raw_persons = raw_episode.find_all('a', {'class': 'person'})
     parsed_persons = [parse_gm_person(x) for x in raw_persons]
-
-    # parsed_persons = []
-    # for raw_person in raw_persons:
-    #     parsed_person = parse_gm_person(raw_person)
-    #     parsed_persons.append(parsed_person)
 
     try:
         duration, file_size = file_info(file_url, file_name)
@@ -151,7 +143,7 @@ def parse_gm_episode(
         title=f'{raw_title} ({episode_date.date()})',
         description=prepare_gm_description(parsed_persons),
         duration=duration,
-        # persons=parsed_persons,
+        persons=parsed_persons,
         file_name=file_name,
         file_url=file_url,
         file_size=file_size,
@@ -240,10 +232,23 @@ def collect_gm_raw_programs(root_url: str):
     return raw_programs
 
 
-def parse_gm_program(root_url, raw_program):
+def ru_title_to_en(name):
+    translited = translit(name, 'ru', reversed=True)
+    cleaned = ''
+
+    for char in translited.lower().strip():
+        if char.isalnum():
+            cleaned += char
+        elif char == ' ':
+            cleaned += '_'
+
+    return cleaned
+
+
+def parse_gm_program(station: Station, raw_program: Tag) -> Program:
     # TODO replace 'replace'
     program_url = raw_program.find('a')['href'].replace('/broadcasts/', '')
-    full_url = root_url + program_url
+    full_url = station.programs_root + program_url
     program_page_soup = get_page_soup(full_url)
 
     name = clean_gm_title(
@@ -258,35 +263,61 @@ def parse_gm_program(root_url, raw_program):
         'div', {'class', 'textDescribe'}
     ).findAll('p')[-1].text.strip()
 
+    if not description:
+        description = name
+
     # TODO decide how to parse hosts
     # hosts = parse_gm_hosts()
     # hosts = list(raw_program.find('a'))[-1].strip().split(' и ')
 
-    
-
     program = Program(
         title_ru=name,
-        title_en=translit(name, 'ru', reversed=True),
+        title_en=ru_title_to_en(name),
         description=description,
         url=full_url,
-        station=
+        station=station,
     )
 
+    return program
 
 
+def parse_gm_programs(station: Station):
+    raw_programs = collect_gm_raw_programs(station.programs_root)
+    programs = [
+        parse_gm_program(station, raw_program)
+        for raw_program
+        in raw_programs
+    ]
 
-def parse_gm_programs(root_url: str):
-    raw_programs = collect_gm_raw_programs(root_url)
-
-    for raw_program in raw_programs:
-        gm_program = parse_gm_program(root_url, raw_program)
-
-    return raw_programs
+    return programs
 
 
 def update_gm_programs() -> None:
     station = Station.objects.filter(name='Говорит Москва').first()
-    programs = parse_gm_programs(station.programs_root)
+
+    for program in station.programs.all():
+        program.status = 'archive'
+        program.save()
+
+    programs = parse_gm_programs(station)
+
+    for program in programs:
+        if 'повтор' in program.title_ru:
+            continue
+
+        existing_program = Program.objects.filter(
+            title_ru=program.title_ru
+        ).first()
+
+        if existing_program:
+            existing_program.status = 'current'
+            # existing_program.hosts = program.hosts
+            existing_program.save()
+        else:
+            program.status = 'new'
+            program.save()
+
+    return None
 
 
 def collect_feed_entry(
@@ -315,18 +346,11 @@ def collect_feed(
         program: Program,
         episodes: List[Episode]) -> FeedGenerator:
 
-    # feed_image_path = (
-    #     f'{config("ROOT_URL")}'
-    #     f'/{config("STATIC_DIR")}'
-    #     f'/{program.title_en}.png'
-    # )
-
     feed = FeedGenerator()
     feed.load_extension('podcast')
 
     feed.title(program.title_ru)
     feed.link(href=program.url)
-    # feed.image(feed_image_path)
     feed.image(program.image_path)
     feed.description(program.description)
     feed.language('ru')
@@ -341,7 +365,9 @@ def collect_feed(
 def parse_gm(station: Station) -> None:
     for program in station.programs.all():
         if not program.image_path:
-            prepare_gm_image(program.title_ru, program.title_en)
+            image_path = prepare_gm_image(program.title_ru, program.title_en)
+            program.image_path = image_path
+            program.save()
 
         episodes = parse_gm_episodes(program)
         feed = collect_feed(program, episodes)
@@ -359,10 +385,16 @@ def parse_gm(station: Station) -> None:
     return None
 
 
-# def update_programs(station: Station):
-#     updaters = {
-#         'Говорит Москва': update_gm_programs,
-#     }
+def update_programs():
+    stations = Station.objects.all()
+    updaters = {
+        'Говорит Москва': update_gm_programs,
+    }
+
+    for station in stations:
+        updaters[station.name]()
+
+    return None
 
 
 def build_rss_files():
@@ -374,6 +406,4 @@ def build_rss_files():
     for station in stations:
         parsers[station.name](station)
 
-
-if __name__ == '__main__':
-    build_rss_files()
+    return None
