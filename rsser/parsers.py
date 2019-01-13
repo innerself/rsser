@@ -117,13 +117,23 @@ def parse_gm_episode(
     episode_date = dateparser.parse(raw_dt, ['ru'])
 
     if (date.today() - episode_date.date()).days < 0:
-        episode_date = datetime(episode_date.year - 1, episode_date.month, episode_date.day)
+        episode_date = datetime(
+            episode_date.year - 1,
+            episode_date.month,
+            episode_date.day
+        )
+
+    raw_persons = raw_episode.find_all('a', {'class': 'person'})
+    parsed_persons = [parse_gm_person(x) for x in raw_persons]
 
     try:
         raw_title = raw_episode.find('p', {'class': 'header'}).text.strip()
         raw_title = clean_gm_title(raw_title)
     except AttributeError:
-        raw_title = program.title_ru
+        if len(parsed_persons) == 1:
+            raw_title = parsed_persons[0]['name']
+        else:
+            raw_title = program.title_ru
 
     try:
         file_name = raw_episode.find('a', {'class': 'download'})['download']
@@ -134,8 +144,7 @@ def parse_gm_episode(
     # if not file_name or not file_url:
     #     return None
 
-    raw_persons = raw_episode.find_all('a', {'class': 'person'})
-    parsed_persons = [parse_gm_person(x) for x in raw_persons]
+
 
     try:
         duration, file_size = file_info(file_url, file_name)
