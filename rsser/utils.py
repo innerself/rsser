@@ -9,7 +9,7 @@ def prepare_gm_image(
         program_title_ru: str,
         program_title_en: str) -> str:
 
-    default_font_size = 30
+    default_font_size = 26
 
     if len(program_title_ru) > 25:
         length_ratio = 25 / len(program_title_ru)
