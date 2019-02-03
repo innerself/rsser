@@ -15,6 +15,7 @@ dateparser = "*"
 tinytag = "*"
 coverage = "*"
 pillow = "*"
+coveralls = "*"
 
 [dev-packages]
 
