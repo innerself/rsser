@@ -1,0 +1,65 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Title</title>
+
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+
+  <link rel="shortcut icon"
+        href="{% static 'rsser/img/favicon.svg' %}"
+        type="image/x-icon">
+  <link rel="stylesheet" href="{% static "rsser/css/index.css" %}">
+</head>
+<body>
+  <div class="stations-container">
+    {% for station in stations %}
+      <div class="station-name">
+        <h1>{{ station.name }}</h1>
+      </div>
+      <div class="accordion programs-container"
+           id="container-{{ station.short_latin_name }}">
+        {% for program in station.programs.all %}
+          <div class="card program">
+            <div class="card-header program-header"
+                 id="heading-{{ program.title_en }}">
+              <h5 class="mb-0 program-title">
+                <button class="btn btn-link"
+                        type="button"
+                        data-toggle="collapse"
+                        data-target="#collapse-{{ program.title_en }}">
+                  {{ program.title_ru }}
+                </button>
+              </h5>
+            </div>
+
+            <div id="collapse-{{ program.title_en }}"
+{#                   class="collapse show"#}
+                 class="collapse"
+                 data-parent="#container-{{ station.short_latin_name }}">
+              <div class="program-info card-body">
+                <div class="program-description">
+                  {{ program.description }}
+                </div>
+                <a class="btn-program-url btn btn-primary"
+                   href="{{ program.url }}"
+                   target="_blank">Страница программы
+                </a>
+                <a class="btn-feed-url btn btn-primary"
+                   href="{{ program.feed_url }}"
+                   target="_blank">RSS
+                </a>
+              </div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% endfor %}
+  </div>
+
+  <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.6/umd/popper.min.js" integrity="sha384-wHAiFfRlMFy6i5SRaxvfOCifBUQy1xHdJ/yoi7FRNXMRBu5WHdZYu1hA6ZOblgut" crossorigin="anonymous"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/js/bootstrap.min.js" integrity="sha384-B0UglyR+jN6CkvvICOB2joaf5I4l3gm9GU6Hc1og6Ls7i6U/mkkaduKaBhlAXv9k" crossorigin="anonymous"></script>
+
+</body>
+</html>
