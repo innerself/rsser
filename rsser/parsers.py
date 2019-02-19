@@ -7,6 +7,7 @@ import dateparser
 import pytz
 import requests
 from bs4 import BeautifulSoup, ResultSet, Tag
+from decouple import config
 from django.conf import settings
 from feedgen.entry import FeedEntry
 from feedgen.feed import FeedGenerator
@@ -32,6 +33,28 @@ def clean_gm_title(raw_title: str) -> str:
     title = title.replace(' (16+)', '').replace(' (0+)', '')
 
     return title
+
+
+def clean_gm_description(raw_description: str) -> str:
+    cleaned_description = str(raw_description)
+
+    description_trash = [
+        'Программа предназначена для лиц старше шестнадцати лет.',
+        'Программа предназначена для лиц старше 16 лет.',
+        'Программа предназначена для слушателей старше 16 лет.',
+        'Программа предназначена для слушателей старше 16 лет',
+        'Предназначена для слушателей старше 16 лет.',
+        'Предназначена для лиц старше шестнадцати лет.',
+        'Программа предназначена для слушателей старше шестнадцати лет.',
+    ]
+
+    for phrase in description_trash:
+        if phrase in raw_description:
+            cleaned_description = cleaned_description.replace(phrase, '')
+
+    cleaned_description = cleaned_description.strip()
+
+    return cleaned_description
 
 
 def get_page_soup(url: str):
@@ -276,23 +299,27 @@ def parse_gm_program(station: Station, raw_program: Tag) -> Program:
         'div', {'class', 'textDescribe'}
     ).findAll('p')[-1].text.strip()
 
-    description = description.replace(
-        'Программа предназначена для лиц старше шестнадцати лет.', ''
-    )
-
     if not description:
         description = name
+
+    description = clean_gm_description(description)
 
     # TODO decide how to parse hosts
     # hosts = parse_gm_hosts()
     # hosts = list(raw_program.find('a'))[-1].strip().split(' и ')
 
+    program_en_title = ru_title_to_en(name)
+
+    feeds_root = f'{config("ROOT_URL")}/feeds/{station.short_latin_name}'
+    feed_url = f'{feeds_root}/{program_en_title}.xml'
+
     program = Program(
         title_ru=name,
-        title_en=ru_title_to_en(name),
+        title_en=program_en_title,
         description=description,
         url=full_url,
         station=station,
+        feed_url=feed_url,
     )
 
     return program
@@ -399,6 +426,7 @@ def parse_gm(station: Station) -> None:
         )
 
         feed.rss_file(file_name, pretty=True)
+
 
     return None
 
