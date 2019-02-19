@@ -57,10 +57,13 @@ html, body {
   border-radius: 13px;
 }
 
+.program-header:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
 .btn-link {
   color: white;
   width: 100%;
-  /*text-align: left;*/
 }
 
 .btn-link,
