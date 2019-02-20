@@ -40,7 +40,7 @@ def prepare_gm_image(
     draw.text((text_start_x, text_start_y), program_title_ru, font=fnt)
 
     image_file_name = f'{program_title_en}.png'
-    prepared_image_path = f'{config("STATIC_DIR")}/rsser/img/{image_file_name}'
+    prepared_image_path = f'{config("STATIC_DIR")}/rsser/images/{image_file_name}'
     image.save(prepared_image_path)
 
     image_url = f'{config("SITE_URL")}/images/{image_file_name}'
