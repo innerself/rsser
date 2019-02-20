@@ -4,5 +4,7 @@ db.sqlite3
 .env
 dmypy.*
 rsser/static/rsser/img/*.png
+!favicon.png
 !gm_logo_template.png
 rsser/feeds/*
+.coverage
