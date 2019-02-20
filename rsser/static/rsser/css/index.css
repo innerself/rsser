@@ -18,6 +18,14 @@ html, body {
   width: 70%;
 }
 
+@media screen and (max-width:480px) {
+ .stations-container {
+    grid-template-columns: 0 1fr 0;
+    grid-auto-rows: auto;
+    width: 95%;
+  }
+}
+
 .station-name {
   width: 100%;
   grid-column: 2;
@@ -99,20 +107,27 @@ html, body {
   grid-gap: 1em;
   background: rgba(0,0,0,0.1);
   border: none;
-
+  text-align: justify;
 }
 
 .program-description {
   grid-column: 1 / span 2;
   border: none;
-
 }
 
 .btn-program-url {
   grid-column: 1;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
 }
 
 .btn-feed-url {
   grid-column: 2;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
 }
 
