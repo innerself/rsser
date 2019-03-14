@@ -122,10 +122,11 @@ USE_L10N = True
 USE_TZ = True
 
 # Sentry.io
-sentry_sdk.init(
-    dsn=config('SENTRY_DSN', default='sentry_dsn_for_travis'),
-    integrations=[DjangoIntegration()]
-)
+if not os.getenv('BUILD_ON_TRAVIS', None):
+    sentry_sdk.init(
+        dsn=config('SENTRY_DSN'),
+        integrations=[DjangoIntegration()]
+    )
 
 
 # Static files (CSS, JavaScript, Images)
