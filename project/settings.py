@@ -123,7 +123,7 @@ USE_TZ = True
 
 # Sentry.io
 sentry_sdk.init(
-    dsn=config('SENTRY_DSN'),
+    dsn=config('SENTRY_DSN', default='sentry_dsn_for_travis'),
     integrations=[DjangoIntegration()]
 )
 
