@@ -3,7 +3,7 @@ __pycache__/
 db.sqlite3
 .env
 dmypy.*
-rsser/static/rsser/img/*.png
+rsser/static/rsser/images/*.png
 !favicon.png
 !gm_logo_template.png
 rsser/feeds/*
