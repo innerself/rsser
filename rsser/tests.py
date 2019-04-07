@@ -12,10 +12,10 @@ class GmParserTests(TestCase):
         self.assertEqual(f('«some «text»»'), 'some «text»')
         self.assertEqual(f('«some «text»'), 'some «text»')
 
-    def test_parse_gm_person(self):
-        f = parsers.parse_gm_person
+    def test_parse_gm_guest(self):
+        f = parsers.parse_gm_guest
 
-        raw_person = (
+        raw_guest = (
             '<a class="person" href="/users/guests/1062/">'
             '<div class="personPic">'
             '<img alt="" src="https://some-link.jpg"/>'
@@ -27,7 +27,7 @@ class GmParserTests(TestCase):
             '</a>'
         )
 
-        soup = BeautifulSoup(raw_person, 'html.parser')
+        soup = BeautifulSoup(raw_guest, 'html.parser')
 
         self.assertEqual(f(soup), {
             'img': 'https://some-link.jpg',

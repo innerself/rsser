@@ -68,18 +68,18 @@ def get_page_soup(url: str):
     return soup
 
 
-def parse_gm_person(raw_person) -> dict:
-    img = raw_person.img['src']
-    name = raw_person.find('p', {'class': 'name'}).text.strip()
-    title = raw_person.find('p', {'class': 'grey'}).text.strip()
+def parse_gm_guest(raw_guest) -> dict:
+    img = raw_guest.img['src']
+    name = raw_guest.find('p', {'class': 'name'}).text.strip()
+    title = raw_guest.find('p', {'class': 'grey'}).text.strip()
 
-    person = {
+    guest = {
         'img': img,
         'name': name,
         'title': title,
     }
 
-    return person
+    return guest
 
 
 def string_hash(string: str) -> str:
@@ -122,11 +122,11 @@ def file_info(url: str, file_name: str) -> tuple:
     return int(tag.duration), tag.filesize
 
 
-def prepare_gm_description(persons: List[dict]) -> str:
+def prepare_gm_description(guests: List[dict]) -> str:
     description = '<br>'.join([
-        f"<b>{person['name']}</b><br>{person['title']}<br>"
-        for person
-        in persons
+        f"<b>{guest['name']}</b><br>{guest['title']}<br>"
+        for guest
+        in guests
     ])
 
     return description
@@ -146,15 +146,15 @@ def parse_gm_episode(
             episode_date.day
         )
 
-    raw_persons = raw_episode.find_all('a', {'class': 'person'})
-    parsed_persons = [parse_gm_person(x) for x in raw_persons]
+    raw_guests = raw_episode.find_all('a', {'class': 'person'})
+    parsed_guests = [parse_gm_guest(x) for x in raw_guests]
 
     try:
         raw_title = raw_episode.find('p', {'class': 'header'}).text.strip()
         raw_title = clean_gm_title(raw_title)
     except AttributeError:
-        if len(parsed_persons) == 1:
-            raw_title = parsed_persons[0]['name']
+        if len(parsed_guests) == 1:
+            raw_title = parsed_guests[0]['name']
         else:
             raw_title = program.title_ru
 
@@ -177,9 +177,9 @@ def parse_gm_episode(
     episode = Episode(
         date=episode_date,
         title=f'{raw_title} ({episode_date.date()})',
-        description=prepare_gm_description(parsed_persons),
+        description=prepare_gm_description(parsed_guests),
         duration=duration,
-        persons=parsed_persons,
+        guests=parsed_guests,
         file_name=file_name,
         file_url=file_url,
         file_size=file_size,

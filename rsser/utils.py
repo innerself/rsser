@@ -20,14 +20,14 @@ def prepare_gm_image(
     image = Image.open(
         os.path.join(
             settings.BASE_DIR,
-            f'{config("STATIC_DIR")}/rsser/img/gm_logo_template.png'
+            f'{config("STATIC_DIR")}/rsser/images/gm_logo_template.png'
         )
     )
 
     fnt = ImageFont.truetype(
         os.path.join(
             settings.BASE_DIR,
-            f'{config("STATIC_DIR")}/rsser/img/Ubuntu-Bold.ttf'
+            f'{config("STATIC_DIR")}/rsser/images/Ubuntu-Bold.ttf'
         ),
         font_size
     )

@@ -35,6 +35,9 @@ class Host(models.Model):
 
 
 class Program(models.Model):
+    class Meta:
+        ordering = ['title_ru']
+
     STATUSES = (
         ('new', 'New'),
         ('current', 'Current'),
@@ -73,7 +76,7 @@ class Episode:
     title: str
     description: str
     duration: int
-    persons: List[dict]
+    guests: List[dict]
     file_name: str
     file_url: str
     file_size: int
