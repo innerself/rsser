@@ -16,6 +16,7 @@ tinytag = "*"
 coverage = "*"
 pillow = "*"
 coveralls = "*"
+sentry-sdk = "*"
 
 [dev-packages]
 
