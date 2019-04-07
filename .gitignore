@@ -8,3 +8,4 @@ rsser/static/rsser/images/*.png
 !gm_logo_template.png
 rsser/feeds/*
 .coverage
+collected_static/
