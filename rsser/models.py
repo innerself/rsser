@@ -70,6 +70,14 @@ class EpisodeRecord(models.Model):
     added = models.DateField(auto_now_add=True)
 
 
+class SiteUser(models.Model):
+    email = models.EmailField(null=False, blank=False)
+    notify = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.email
+
+
 @dataclass
 class Episode:
     date: datetime

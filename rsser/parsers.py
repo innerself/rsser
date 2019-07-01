@@ -9,13 +9,16 @@ import requests
 from bs4 import BeautifulSoup, ResultSet, Tag
 from decouple import config
 from django.conf import settings
+from django.core.mail import EmailMultiAlternatives
+from django.db.models import Q
+from django.template.loader import get_template
 from feedgen.entry import FeedEntry
 from feedgen.feed import FeedGenerator
 from requests.exceptions import InvalidURL
 from tinytag import TinyTag
 from transliterate import translit
 
-from rsser.models import Station, Program, Episode, EpisodeRecord
+from rsser.models import Station, Program, Episode, EpisodeRecord, SiteUser
 from rsser.utils import prepare_gm_image
 
 
@@ -166,8 +169,6 @@ def parse_gm_episode(
 
     # if not file_name or not file_url:
     #     return None
-
-
 
     try:
         duration, file_size = file_info(file_url, file_name)
@@ -336,6 +337,46 @@ def parse_gm_programs(station: Station):
     return programs
 
 
+def notify_programs_status_change(station: Station) -> bool:
+    sender = config("EMAIL_FROM")
+    recipients = [
+        user.email
+        for user
+        in SiteUser.objects.filter(notify=True).all()
+    ]
+    subject = 'Изменения в списке программ'
+
+    new_programs = station.programs.filter(status='new')
+    archive_programs = station.programs.filter(status='archive')
+
+    if not any([new_programs, archive_programs]):
+        return False
+
+    context = {
+        'station_name': station.name,
+        'new_programs': new_programs,
+        'archive_programs': archive_programs,
+    }
+
+    text_tmpl = get_template('rsser/program_status_change.txt')
+    html_tmpl = get_template('rsser/program_status_change.html')
+
+    text_content = text_tmpl.render(context)
+    html_content = html_tmpl.render(context)
+
+    message = EmailMultiAlternatives(
+        subject=subject,
+        body=text_content,
+        from_email=sender,
+        to=recipients,
+    )
+    message.attach_alternative(html_content, 'text/html')
+
+    message_sent = message.send()
+
+    return bool(message_sent)
+
+
 def update_gm_programs() -> None:
     station = Station.objects.filter(name='Говорит Москва').first()
 
@@ -360,6 +401,11 @@ def update_gm_programs() -> None:
         else:
             program.status = 'new'
             program.save()
+
+    mail_sent = notify_programs_status_change(station)
+
+    if mail_sent:
+        station.programs.filter(status='archive').delete()
 
     return None
 
@@ -426,7 +472,6 @@ def parse_gm(station: Station) -> None:
         )
 
         feed.rss_file(file_name, pretty=True)
-
 
     return None
 

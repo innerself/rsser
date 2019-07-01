@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Program status change</title>
+</head>
+<body>
+  <h2>Изменился набор программ на станции {{ station_name }}</h2>
+  {% if new_programs %}
+    <h3>Новые программы:</h3>
+    <ul>
+    {% for program in new_programs %}
+      <li>{{ program.title_ru }}</li>
+    {% endfor %}
+    </ul>
+  {% endif %}
+
+  {% if archive_programs %}
+    <h3>Убранные в архив программы:</h3>
+    <ul>
+    {% for program in archive_programs %}
+      <li>{{ program.title_ru }}</li>
+    {% endfor %}
+    </ul>
+  {% endif %}
+</body>
+</html>

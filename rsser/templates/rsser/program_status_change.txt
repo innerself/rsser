@@ -1,0 +1,14 @@
+Изменился набор программ на станции {{ station_name }}:
+{% if new_programs %}
+    Новые программы:
+    {% for program in new_programs %}
+     - {{ program.title_ru }}
+    {% endfor %}
+{% endif %}
+
+{% if archive_programs %}
+    Убранные в архив программы:
+    {% for program in archive_programs %}
+     - {{ program.title_ru }}
+    {% endfor %}
+{% endif %}
