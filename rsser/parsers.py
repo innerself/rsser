@@ -1,5 +1,6 @@
 import hashlib
 import os
+import time
 from datetime import date, datetime
 from typing import List, Optional
 
@@ -10,7 +11,6 @@ from bs4 import BeautifulSoup, ResultSet, Tag
 from decouple import config
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
-from django.db.models import Q
 from django.template.loader import get_template
 from feedgen.entry import FeedEntry
 from feedgen.feed import FeedGenerator
@@ -61,6 +61,7 @@ def clean_gm_description(raw_description: str) -> str:
 
 
 def get_page_soup(url: str):
+    time.sleep(2)
     response = requests.get(url)
 
     if response.status_code != 200:
@@ -103,6 +104,7 @@ def file_info(url: str, file_name: str) -> tuple:
     if not os.path.exists(tmp_folder):
         os.mkdir(tmp_folder)
 
+    time.sleep(2)
     response = requests.get(url)
 
     if not response.status_code == 200:
@@ -203,6 +205,7 @@ def collect_gm_raw_episodes(
     url_suffix = f'?month={curr_date.month}&year={curr_date.year}'
     full_program_url = program.url + url_suffix
 
+    time.sleep(2)
     response = requests.get(full_program_url)
 
     if response.status_code != 200:
@@ -256,8 +259,7 @@ def prepare_gm_title(
 
 
 def collect_gm_raw_programs(root_url: str):
-    response = requests.get(root_url)
-    soup = BeautifulSoup(response.content, 'html.parser')
+    soup = get_page_soup(root_url)
     programs_root = soup.find('div', {'id': 'programs'})
     programs_wrapper = programs_root.findAll('ul', {'class': 'programsList'})
 
