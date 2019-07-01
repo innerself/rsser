@@ -122,7 +122,7 @@ USE_L10N = True
 USE_TZ = True
 
 # Sentry.io
-if not os.getenv('BUILD_ON_TRAVIS', None):
+if config('SENTRY_RUN', cast=bool, default=False):
     sentry_sdk.init(
         dsn=config('SENTRY_DSN'),
         integrations=[DjangoIntegration()]
