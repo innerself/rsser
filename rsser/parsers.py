@@ -1,9 +1,6 @@
-import hashlib
 import os
 import time
-from collections import namedtuple
-from datetime import date, datetime
-from typing import List, Optional
+from typing import List
 
 import dateparser
 import pytz
@@ -16,27 +13,10 @@ from django.template.loader import get_template
 from feedgen.entry import FeedEntry
 from feedgen.feed import FeedGenerator
 from requests.exceptions import InvalidURL
-from tinytag import TinyTag
 from transliterate import translit
 
-from rsser.models import Station, Program, Episode, EpisodeRecord, SiteUser
-from rsser.utils import prepare_gm_image
-
-
-def clean_gm_title(raw_title: str) -> str:
-    if not raw_title.startswith('«') and not raw_title.endswith('»'):
-        return raw_title
-
-    unbalanced_quotes = raw_title.count('«') - raw_title.count('»') > 0
-
-    if unbalanced_quotes:
-        title = raw_title[1:]
-    else:
-        title = raw_title[1:-1]
-
-    title = title.replace(' (16+)', '').replace(' (0+)', '')
-
-    return title
+from rsser.models import Station, Program, Episode, SiteUser
+from rsser.utils import prepare_gm_image, clean_gm_title, string_hash
 
 
 def clean_gm_description(raw_description: str) -> str:
@@ -87,47 +67,6 @@ def parse_gm_guest(raw_guest) -> dict:
     return guest
 
 
-def string_hash(string: str) -> str:
-    return hashlib.md5(string.encode('utf-8')).hexdigest()
-
-
-def file_info(url: str, file_name: str) -> tuple:
-    url_hash = string_hash(url)
-    episode = EpisodeRecord.objects.filter(url_hash=url_hash).first()
-
-    if episode:
-        return episode.duration, episode.size
-
-    tmp_folder_name = 'uploads'
-    tmp_folder = os.path.join(settings.BASE_DIR, tmp_folder_name)
-    tmp_file = os.path.join(tmp_folder, file_name)
-
-    if not os.path.exists(tmp_folder):
-        os.mkdir(tmp_folder)
-
-    time.sleep(2)
-    response = requests.get(url)
-
-    if not response.status_code == 200:
-        raise InvalidURL(url)
-
-    with open(tmp_file, 'wb') as f:
-        f.write(response.content)
-
-    tag = TinyTag.get(tmp_file)
-
-    EpisodeRecord.objects.create(
-        url=url,
-        url_hash=url_hash,
-        duration=tag.duration,
-        size=tag.filesize,
-    )
-
-    os.remove(tmp_file)
-
-    return int(tag.duration), tag.filesize
-
-
 def prepare_gm_description(guests: List[dict]) -> str:
     description = '<br>'.join([
         f"<b>{guest['name']}</b><br>{guest['title']}<br>"
@@ -136,90 +75,6 @@ def prepare_gm_description(guests: List[dict]) -> str:
     ])
 
     return description
-
-
-def get_episode_date(raw_episode):
-    raw_dt = raw_episode.find('div', {'class': 'time'}).span.text.strip()
-    episode_date = dateparser.parse(raw_dt, ['ru'])
-
-    if (date.today() - episode_date.date()).days < 0:
-        episode_date = datetime(
-            episode_date.year - 1,
-            episode_date.month,
-            episode_date.day
-        )
-
-    return episode_date
-
-
-def get_episode_guests(raw_episode):
-    raw_guests = raw_episode.find_all('a', {'class': 'person'})
-    guests = [parse_gm_guest(x) for x in raw_guests]
-
-    return guests
-
-
-def get_episode_title(raw_episode, guests, program):
-    try:
-        title = raw_episode.find('p', {'class': 'header'}).text.strip()
-        title = clean_gm_title(title)
-    except AttributeError:
-        if len(guests) == 1:
-            title = guests[0]['name']
-        else:
-            title = program.title_ru
-
-    return title
-
-
-def get_record_info(raw_episode):
-    try:
-        file_name = raw_episode.find('a', {'class': 'download'})['download']
-        file_url = raw_episode.find('a', {'class': 'download'})['href']
-    except TypeError:
-        return None
-
-    # if not file_name or not file_url:
-    #     return None
-
-    try:
-        duration, file_size = file_info(file_url, file_name)
-    except InvalidURL:
-        return None
-
-    Record = namedtuple('Record', ('name', 'url', 'duration', 'size'))
-    record = Record(
-        name=file_name,
-        url=file_url,
-        duration=duration,
-        size=file_size,
-    )
-
-    return record
-
-
-def parse_gm_episode(
-        program: Program,
-        raw_episode) -> Optional[Episode]:
-
-    episode_date = get_episode_date(raw_episode)
-    guests = get_episode_guests(raw_episode)
-    title = get_episode_title(raw_episode, guests, program)
-    record = get_record_info(raw_episode)
-
-    episode = Episode(
-        date=episode_date,
-        title=f'{title} ({episode_date.date()})',
-        # title=f'{raw_title} ({episode_date.date()})',
-        description=prepare_gm_description(guests),
-        duration=record.duration,
-        guests=guests,
-        file_name=record.name,
-        file_url=record.url,
-        file_size=record.size,
-    )
-
-    return episode
 
 
 def collect_gm_raw_episodes(
@@ -269,10 +124,11 @@ def parse_gm_episodes(program: Program) -> List[Episode]:
 
     parsed_episodes = []
     for raw_episode in raw_episodes:
-        parsed_episode = parse_gm_episode(program, raw_episode)
+        episode = Episode(program, raw_episode)
+        episode.parse()
 
-        if parsed_episode:
-            parsed_episodes.append(parsed_episode)
+        if episode.record.url:
+            parsed_episodes.append(episode)
 
     return parsed_episodes
 
@@ -447,7 +303,7 @@ def collect_feed_entry(
         program: Program,
         episode: Episode) -> FeedEntry:
 
-    minutes, seconds = divmod(episode.duration, 60)
+    minutes, seconds = divmod(episode.record.duration, 60)
     hours, minutes = divmod(minutes, 60)
     duration = '%02d:%02d:%02d' % (hours, minutes, seconds)
 
@@ -458,8 +314,8 @@ def collect_feed_entry(
     entry.link(href=program.url)
     entry.description(episode.description)
     entry.published(pytz.utc.localize(episode.date))
-    entry.guid(string_hash(episode.file_url))
-    entry.enclosure(episode.file_url, str(episode.file_size), 'audio/mpeg')
+    entry.guid(string_hash(episode.record.url))
+    entry.enclosure(episode.record.url, str(episode.record.size), 'audio/mpeg')
     entry.podcast.itunes_duration(duration)
 
     return entry

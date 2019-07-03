@@ -1,8 +1,14 @@
+import hashlib
 import os
+import time
 
+import requests
 from decouple import config
 from django.conf import settings
 from PIL import Image, ImageDraw, ImageFont
+from django.db import models
+from requests.exceptions import InvalidURL
+from tinytag import TinyTag
 
 
 def prepare_gm_image(
@@ -46,3 +52,68 @@ def prepare_gm_image(
     image_url = f'{config("SITE_URL")}/images/{image_file_name}'
 
     return image_url
+
+
+def file_info(url: str, file_name: str) -> tuple:
+    url_hash = string_hash(url)
+    episode = EpisodeRecord.objects.filter(url_hash=url_hash).first()
+
+    if episode:
+        return episode.duration, episode.size
+
+    tmp_folder_name = 'uploads'
+    tmp_folder = os.path.join(settings.BASE_DIR, tmp_folder_name)
+    tmp_file = os.path.join(tmp_folder, file_name)
+
+    if not os.path.exists(tmp_folder):
+        os.mkdir(tmp_folder)
+
+    time.sleep(2)
+    response = requests.get(url)
+
+    if not response.status_code == 200:
+        raise InvalidURL(url)
+
+    with open(tmp_file, 'wb') as f:
+        f.write(response.content)
+
+    tag = TinyTag.get(tmp_file)
+
+    EpisodeRecord.objects.create(
+        url=url,
+        url_hash=url_hash,
+        duration=tag.duration,
+        size=tag.filesize,
+    )
+
+    os.remove(tmp_file)
+
+    return int(tag.duration), tag.filesize
+
+
+def clean_gm_title(raw_title: str) -> str:
+    if not raw_title.startswith('«') and not raw_title.endswith('»'):
+        return raw_title
+
+    unbalanced_quotes = raw_title.count('«') - raw_title.count('»') > 0
+
+    if unbalanced_quotes:
+        title = raw_title[1:]
+    else:
+        title = raw_title[1:-1]
+
+    title = title.replace(' (16+)', '').replace(' (0+)', '')
+
+    return title
+
+
+class EpisodeRecord(models.Model):
+    url = models.URLField()
+    url_hash = models.CharField(max_length=200)
+    duration = models.IntegerField()
+    size = models.IntegerField()
+    added = models.DateField(auto_now_add=True)
+
+
+def string_hash(string: str) -> str:
+    return hashlib.md5(string.encode('utf-8')).hexdigest()
