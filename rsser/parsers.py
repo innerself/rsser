@@ -1,6 +1,7 @@
 import hashlib
 import os
 import time
+from collections import namedtuple
 from datetime import date, datetime
 from typing import List, Optional
 
@@ -137,10 +138,7 @@ def prepare_gm_description(guests: List[dict]) -> str:
     return description
 
 
-def parse_gm_episode(
-        program: Program,
-        raw_episode) -> Optional[Episode]:
-
+def get_episode_date(raw_episode):
     raw_dt = raw_episode.find('div', {'class': 'time'}).span.text.strip()
     episode_date = dateparser.parse(raw_dt, ['ru'])
 
@@ -151,18 +149,30 @@ def parse_gm_episode(
             episode_date.day
         )
 
+    return episode_date
+
+
+def get_episode_guests(raw_episode):
     raw_guests = raw_episode.find_all('a', {'class': 'person'})
-    parsed_guests = [parse_gm_guest(x) for x in raw_guests]
+    guests = [parse_gm_guest(x) for x in raw_guests]
 
+    return guests
+
+
+def get_episode_title(raw_episode, guests, program):
     try:
-        raw_title = raw_episode.find('p', {'class': 'header'}).text.strip()
-        raw_title = clean_gm_title(raw_title)
+        title = raw_episode.find('p', {'class': 'header'}).text.strip()
+        title = clean_gm_title(title)
     except AttributeError:
-        if len(parsed_guests) == 1:
-            raw_title = parsed_guests[0]['name']
+        if len(guests) == 1:
+            title = guests[0]['name']
         else:
-            raw_title = program.title_ru
+            title = program.title_ru
 
+    return title
+
+
+def get_record_info(raw_episode):
     try:
         file_name = raw_episode.find('a', {'class': 'download'})['download']
         file_url = raw_episode.find('a', {'class': 'download'})['href']
@@ -177,15 +187,36 @@ def parse_gm_episode(
     except InvalidURL:
         return None
 
+    Record = namedtuple('Record', ('name', 'url', 'duration', 'size'))
+    record = Record(
+        name=file_name,
+        url=file_url,
+        duration=duration,
+        size=file_size,
+    )
+
+    return record
+
+
+def parse_gm_episode(
+        program: Program,
+        raw_episode) -> Optional[Episode]:
+
+    episode_date = get_episode_date(raw_episode)
+    guests = get_episode_guests(raw_episode)
+    title = get_episode_title(raw_episode, guests, program)
+    record = get_record_info(raw_episode)
+
     episode = Episode(
         date=episode_date,
-        title=f'{raw_title} ({episode_date.date()})',
-        description=prepare_gm_description(parsed_guests),
-        duration=duration,
-        guests=parsed_guests,
-        file_name=file_name,
-        file_url=file_url,
-        file_size=file_size,
+        title=f'{title} ({episode_date.date()})',
+        # title=f'{raw_title} ({episode_date.date()})',
+        description=prepare_gm_description(guests),
+        duration=record.duration,
+        guests=guests,
+        file_name=record.name,
+        file_url=record.url,
+        file_size=record.size,
     )
 
     return episode
