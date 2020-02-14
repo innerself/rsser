@@ -85,11 +85,11 @@
         },
         "coveralls": {
             "hashes": [
-                "sha256:2da39aeaef986757653f0a442ba2bef22a8ec602c8bacbc69d39f468dfae12ec",
-                "sha256:906e07a12b2ac04b8ad782d06173975fe5ff815fe9df3bfedd2c099bc5791aec"
+                "sha256:0a102a9326933e23213f29103b08f148c97fc3128292c3aa24fae1e773940650",
+                "sha256:b4b21b15f4a5297794b5393cc40f720ef70c50f20772325d26965d96000ce0ca"
             ],
             "index": "pypi",
-            "version": "==1.10.0"
+            "version": "==1.11.0"
         },
         "dateparser": {
             "hashes": [
@@ -101,11 +101,11 @@
         },
         "django": {
             "hashes": [
-                "sha256:4f2c913303be4f874015993420bf0bd8fd2097a9c88e6b49c6a92f9bdd3fb13a",
-                "sha256:8c3575f81e11390893860d97e1e0154c47512f180ea55bd84ce8fa69ba8051ca"
+                "sha256:2f1ba1db8648484dd5c238fb62504777b7ad090c81c5f1fd8d5eb5ec21b5f283",
+                "sha256:c91c91a7ad6ef67a874a4f76f58ba534f9208412692a840e1d125eb5c279cb0a"
             ],
             "index": "pypi",
-            "version": "==3.0.2"
+            "version": "==3.0.3"
         },
         "docopt": {
             "hashes": [
@@ -161,11 +161,11 @@
         },
         "mimesis": {
             "hashes": [
-                "sha256:4b8fc414bd101109615fa8b6ad49f1811199e2745a4e9ef527193a4ab69637fc",
-                "sha256:faf4eed0abea190e77257f1c8d9fc8278784bb0de889e365e3af462aa53f0416"
+                "sha256:9a4f001f95b9cceb419266e28b422e67fae71995e16a6ab641ff14dd139f5fa3",
+                "sha256:d59ca48d4118d391704a525cef4e33fa219f3d9c4f9a95b7ec2a0e0c88e048a4"
             ],
             "index": "pypi",
-            "version": "==3.3.0"
+            "version": "==4.0.0"
         },
         "pillow": {
             "hashes": [
