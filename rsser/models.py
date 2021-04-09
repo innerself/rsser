@@ -50,7 +50,7 @@ class Program(models.Model):
     url = models.URLField()
     feed_url = models.URLField()
     image_path = models.URLField()
-    status = models.CharField(max_length=1, choices=STATUSES)
+    status = models.CharField(max_length=10, choices=STATUSES)
     hosts = models.ManyToManyField(Host, related_name='programs')
     station = models.ForeignKey(
         Station,
