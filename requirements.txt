@@ -8,6 +8,7 @@ dateparser==1.0.0
 Django==3.2
 docopt==0.6.2
 feedgen==0.9.0
+gunicorn==20.1.0
 idna==2.8
 lxml==4.6.3
 mimesis==4.1.3
